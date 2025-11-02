@@ -1,9 +1,98 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleAIClient } from '@google/genai';
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
 import { CompanyInfo, GeminiScoreResponse, PageContent, ScoredUrl } from './types.js';
 
-const geminiClient = new GoogleGenerativeAI(appConfig.geminiApiKey);
+const geminiClient = new GoogleAIClient({ apiKey: appConfig.geminiApiKey });
+
+function extractTextFromGeminiResponse(response: unknown): string {
+  if (!response) {
+    return '';
+  }
+
+  const collected: string[] = [];
+  const payload = response as Record<string, unknown>;
+
+  const candidateGroups = [
+    (payload.response as { candidates?: unknown[] } | undefined)?.candidates,
+    (payload as { candidates?: unknown[] }).candidates,
+    (payload.output as { candidates?: unknown[] } | undefined)?.candidates,
+    (payload.result as { candidates?: unknown[] } | undefined)?.candidates
+  ].filter((group): group is unknown[] => Array.isArray(group));
+
+  const extractFromParts = (parts: unknown): string[] => {
+    if (!Array.isArray(parts)) {
+      return [];
+    }
+
+    return parts
+      .map((part) => {
+        if (part && typeof part === 'object' && 'text' in part && typeof (part as { text: unknown }).text === 'string') {
+          return (part as { text: string }).text;
+        }
+
+        if (typeof part === 'string') {
+          return part;
+        }
+
+        return '';
+      })
+      .filter((text): text is string => Boolean(text?.trim?.()));
+  };
+
+  for (const candidates of candidateGroups) {
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== 'object') {
+        continue;
+      }
+
+      const candidateObj = candidate as {
+        content?: { parts?: unknown[] } | undefined;
+        parts?: unknown[];
+        output_text?: string;
+      };
+
+      collected.push(...extractFromParts(candidateObj.content?.parts));
+      collected.push(...extractFromParts(candidateObj.parts));
+
+      if (typeof candidateObj.output_text === 'string' && candidateObj.output_text.trim().length > 0) {
+        collected.push(candidateObj.output_text);
+      }
+    }
+  }
+
+  const outputArray = (payload.output as unknown[])?.filter?.((item) => item && typeof item === 'object') ?? [];
+  if (Array.isArray(outputArray)) {
+    for (const item of outputArray) {
+      const entry = item as { content?: { parts?: unknown[] }; parts?: unknown[]; output_text?: string };
+      collected.push(...extractFromParts(entry.content?.parts));
+      collected.push(...extractFromParts(entry.parts));
+      if (typeof entry.output_text === 'string' && entry.output_text.trim().length > 0) {
+        collected.push(entry.output_text);
+      }
+    }
+  }
+
+  const textLikeCandidates = [
+    ((payload.response as { text?: () => string } | undefined)?.text?.()) ?? '',
+    (payload.response as { output_text?: string } | undefined)?.output_text ?? '',
+    (payload as { output_text?: string }).output_text ?? '',
+    (payload as { text?: string }).text ?? ''
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+  collected.push(...textLikeCandidates);
+
+  const uniqueText = collected
+    .map((text) => text.trim())
+    .filter((text, index, array) => text.length > 0 && array.indexOf(text) === index);
+
+  if (uniqueText.length === 0) {
+    return '';
+  }
+
+  return uniqueText.join('\n');
+}
 
 function buildPrompt(company: CompanyInfo, pages: PageContent[]): string {
   const pageSummaries = pages
@@ -70,11 +159,11 @@ export async function scoreCandidateUrls(company: CompanyInfo, pages: PageConten
     return [];
   }
 
-  const model = geminiClient.getGenerativeModel({ model: appConfig.geminiModel });
   const prompt = buildPrompt(company, pages);
 
   try {
-    const response = await model.generateContent({
+    const response = await geminiClient.responses.generate({
+      model: appConfig.geminiModel,
       contents: [
         {
           role: 'user',
@@ -83,10 +172,7 @@ export async function scoreCandidateUrls(company: CompanyInfo, pages: PageConten
       ]
     });
 
-    const candidates = response.response?.candidates ?? [];
-    const combinedText = candidates
-      .flatMap((candidate) => candidate.content?.parts?.map((part) => part.text ?? '') ?? [])
-      .join('\n');
+    const combinedText = extractTextFromGeminiResponse(response);
 
     const parsed = safeParseGeminiResponse(combinedText);
     if (!parsed) {
