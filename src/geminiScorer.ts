@@ -237,7 +237,7 @@ export async function scoreCandidateUrls(
       ],
     });
 
-    const usageMetadata = response.response?.usageMetadata;
+    const usageMetadata = response?.usageMetadata;
     if (usageMetadata) {
       const { promptTokenCount, candidatesTokenCount, totalTokenCount } =
         usageMetadata;

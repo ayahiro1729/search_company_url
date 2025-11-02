@@ -2,9 +2,10 @@ module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json',
+    project: ['./tsconfig.json', './tsconfig.test.json'],
     sourceType: 'module'
   },
+  ignorePatterns: ['*.d.ts', '*.cjs', '*.js', 'dist/**', 'node_modules/**'],
   env: {
     es2021: true,
     node: true
@@ -16,6 +17,7 @@ module.exports = {
       js: 'always',
       ts: 'always'
     }],
+    'import/no-unresolved': 'off',
     'import/order': ['error', {
       'newlines-between': 'always',
       alphabetize: { order: 'asc', caseInsensitive: true }

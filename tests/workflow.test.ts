@@ -20,11 +20,6 @@ const { searchCompanyWebsites } = await import('../src/googleSearch.js');
 const { scoreCandidateUrls } = await import('../src/geminiScorer.js');
 const { findBestCompanyUrl } = await import('../src/index.js');
 
-declare global {
-  // eslint-disable-next-line no-var
-  var fetch: typeof globalThis.fetch;
-}
-
 describe('findBestCompanyUrl', () => {
   beforeEach(() => {
     fetchMock.mockReset();
