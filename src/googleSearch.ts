@@ -1,0 +1,42 @@
+import { customsearch_v1 } from '@googleapis/customsearch';
+import { appConfig } from './config.js';
+import { logger } from './logger.js';
+import { CompanyInfo, SearchResultItem } from './types.js';
+
+const customSearchClient = new customsearch_v1.Customsearch({});
+
+export async function searchCompanyWebsites(company: CompanyInfo): Promise<SearchResultItem[]> {
+  const queryParts = [company.name];
+  if (company.address) {
+    queryParts.push(company.address);
+  }
+  if (company.description) {
+    queryParts.push(company.description);
+  }
+
+  const query = queryParts.join(' ');
+  logger.info(`Searching for company websites with query: ${query}`);
+
+  try {
+    const response = await customSearchClient.cse.list({
+      auth: appConfig.googleApiKey,
+      cx: appConfig.googleSearchEngineId,
+      q: query,
+      num: appConfig.googleSearchResultCount
+    });
+
+    const items = response.data.items ?? [];
+    logger.debug(`Received ${items.length} search results.`);
+
+    return items
+      .filter((item): item is customsearch_v1.Schema$Result => Boolean(item.link))
+      .map((item) => ({
+        title: item.title ?? item.link ?? 'Untitled result',
+        url: item.link as string,
+        snippet: item.snippet ?? item.htmlSnippet
+      }));
+  } catch (error) {
+    logger.error('Failed to execute Google Custom Search request.', error);
+    throw error;
+  }
+}
