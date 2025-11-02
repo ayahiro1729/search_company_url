@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node --loader ts-node/esm src/index.ts",
-    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "dev": "LOG_LEVEL=debug tsx src/index.ts",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest"

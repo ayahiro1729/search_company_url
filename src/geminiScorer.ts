@@ -1,9 +1,15 @@
-import { GoogleAIClient } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
+
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
-import { CompanyInfo, GeminiScoreResponse, PageContent, ScoredUrl } from './types.js';
+import {
+  CompanyInfo,
+  GeminiScoreResponse,
+  PageContent,
+  ScoredUrl,
+} from './types.js';
 
-const geminiClient = new GoogleAIClient({ apiKey: appConfig.geminiApiKey });
+const geminiClient = new GoogleGenAI({ apiKey: appConfig.geminiApiKey });
 
 function extractTextFromGeminiResponse(response: unknown): string {
   if (!response) {
@@ -17,7 +23,7 @@ function extractTextFromGeminiResponse(response: unknown): string {
     (payload.response as { candidates?: unknown[] } | undefined)?.candidates,
     (payload as { candidates?: unknown[] }).candidates,
     (payload.output as { candidates?: unknown[] } | undefined)?.candidates,
-    (payload.result as { candidates?: unknown[] } | undefined)?.candidates
+    (payload.result as { candidates?: unknown[] } | undefined)?.candidates,
   ].filter((group): group is unknown[] => Array.isArray(group));
 
   const extractFromParts = (parts: unknown): string[] => {
@@ -27,7 +33,12 @@ function extractTextFromGeminiResponse(response: unknown): string {
 
     return parts
       .map((part) => {
-        if (part && typeof part === 'object' && 'text' in part && typeof (part as { text: unknown }).text === 'string') {
+        if (
+          part &&
+          typeof part === 'object' &&
+          'text' in part &&
+          typeof (part as { text: unknown }).text === 'string'
+        ) {
           return (part as { text: string }).text;
         }
 
@@ -55,37 +66,55 @@ function extractTextFromGeminiResponse(response: unknown): string {
       collected.push(...extractFromParts(candidateObj.content?.parts));
       collected.push(...extractFromParts(candidateObj.parts));
 
-      if (typeof candidateObj.output_text === 'string' && candidateObj.output_text.trim().length > 0) {
+      if (
+        typeof candidateObj.output_text === 'string' &&
+        candidateObj.output_text.trim().length > 0
+      ) {
         collected.push(candidateObj.output_text);
       }
     }
   }
 
-  const outputArray = (payload.output as unknown[])?.filter?.((item) => item && typeof item === 'object') ?? [];
+  const outputArray =
+    (payload.output as unknown[])?.filter?.(
+      (item) => item && typeof item === 'object'
+    ) ?? [];
   if (Array.isArray(outputArray)) {
     for (const item of outputArray) {
-      const entry = item as { content?: { parts?: unknown[] }; parts?: unknown[]; output_text?: string };
+      const entry = item as {
+        content?: { parts?: unknown[] };
+        parts?: unknown[];
+        output_text?: string;
+      };
       collected.push(...extractFromParts(entry.content?.parts));
       collected.push(...extractFromParts(entry.parts));
-      if (typeof entry.output_text === 'string' && entry.output_text.trim().length > 0) {
+      if (
+        typeof entry.output_text === 'string' &&
+        entry.output_text.trim().length > 0
+      ) {
         collected.push(entry.output_text);
       }
     }
   }
 
   const textLikeCandidates = [
-    ((payload.response as { text?: () => string } | undefined)?.text?.()) ?? '',
-    (payload.response as { output_text?: string } | undefined)?.output_text ?? '',
+    (payload.response as { text?: () => string } | undefined)?.text?.() ?? '',
+    (payload.response as { output_text?: string } | undefined)?.output_text ??
+      '',
     (payload as { output_text?: string }).output_text ?? '',
-    (payload as { text?: string }).text ?? ''
-  ]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    (payload as { text?: string }).text ?? '',
+  ].filter(
+    (value): value is string =>
+      typeof value === 'string' && value.trim().length > 0
+  );
 
   collected.push(...textLikeCandidates);
 
   const uniqueText = collected
     .map((text) => text.trim())
-    .filter((text, index, array) => text.length > 0 && array.indexOf(text) === index);
+    .filter(
+      (text, index, array) => text.length > 0 && array.indexOf(text) === index
+    );
 
   if (uniqueText.length === 0) {
     return '';
@@ -98,33 +127,57 @@ function buildPrompt(company: CompanyInfo, pages: PageContent[]): string {
   const pageSummaries = pages
     .map(
       (page) =>
-        `URL: ${page.url}\nTitle: ${page.title}\nSnippet: ${page.snippet ?? 'N/A'}\nContent Preview: ${page.content.slice(0, 1000)}`
+        `URL: ${page.url}\nTitle: ${page.title}\nSnippet: ${
+          page.snippet ?? 'N/A'
+        }\nContent Preview: ${page.content.slice(0, 1000)}`
     )
     .join('\n---\n');
 
-  const description = company.description ? `Description: ${company.description}` : 'Description: Not provided';
-  const address = company.address ? `Address: ${company.address}` : 'Address: Not provided';
+  const description = company.description
+    ? `Description: ${company.description}`
+    : 'Description: Not provided';
+  const address = company.address
+    ? `Address: ${company.address}`
+    : 'Address: Not provided';
 
-  return `You are evaluating candidate company websites. Return a JSON object with a single property \\"urls\\" that is an array of objects in the shape {\"url\": string, \"score\": number between 0 and 1, \"reason\": string}.\n` +
+  return (
+    `You are evaluating candidate company websites. Return ONLY a raw JSON object (no markdown, no code blocks, no backticks).\n\n` +
+    `The JSON must have a single property "urls" that is an array of objects with this exact shape:\n` +
+    `{"url": string, "score": number between 0 and 1, "reason": string}\n\n` +
     `Company name: ${company.name}\n${address}\n${description}\n\nCandidate pages:\n${pageSummaries}\n\n` +
     'Base the score on how well the page seems to represent the official website for the company. Higher is better. ' +
-    'Always return scores for every provided URL and ensure valid JSON.';
+    'Always return scores for every provided URL. Return ONLY the JSON object, nothing else.'
+  );
 }
 
 function safeParseGeminiResponse(raw: string): GeminiScoreResponse | undefined {
   try {
-    const parsed = JSON.parse(raw) as GeminiScoreResponse;
+    // トリムして余分な空白を削除
+    let cleanedJson = raw.trim();
+
+    // 念のため、マークダウンコードブロックがあれば削除（フォールバック）
+    const codeBlockMatch = cleanedJson.match(
+      /^```(?:json)?\s*([\s\S]*?)\s*```$/
+    );
+    if (codeBlockMatch) {
+      cleanedJson = codeBlockMatch[1].trim();
+    }
+
+    const parsed = JSON.parse(cleanedJson) as GeminiScoreResponse;
     if (!parsed || !Array.isArray(parsed.urls)) {
       return undefined;
     }
     return {
       urls: parsed.urls
-        .filter((entry) => typeof entry.url === 'string' && typeof entry.score === 'number')
+        .filter(
+          (entry) =>
+            typeof entry.url === 'string' && typeof entry.score === 'number'
+        )
         .map((entry) => ({
           url: entry.url,
           score: Math.min(1, Math.max(0, entry.score)),
-          reason: entry.reason
-        }))
+          reason: entry.reason,
+        })),
     };
   } catch (error) {
     logger.warn('Unable to parse Gemini response as JSON.', error);
@@ -132,7 +185,10 @@ function safeParseGeminiResponse(raw: string): GeminiScoreResponse | undefined {
   }
 }
 
-function heuristicScore(company: CompanyInfo, pages: PageContent[]): ScoredUrl[] {
+function heuristicScore(
+  company: CompanyInfo,
+  pages: PageContent[]
+): ScoredUrl[] {
   const normalizedName = company.name.toLowerCase().replace(/[^a-z0-9]/g, '');
   return pages.map((page) => {
     const normalizedUrl = page.url.toLowerCase();
@@ -140,21 +196,30 @@ function heuristicScore(company: CompanyInfo, pages: PageContent[]): ScoredUrl[]
     if (normalizedUrl.includes(normalizedName)) {
       score += 0.5;
     }
-    if (page.snippet && page.snippet.toLowerCase().includes(company.name.toLowerCase())) {
+    if (
+      page.snippet &&
+      page.snippet.toLowerCase().includes(company.name.toLowerCase())
+    ) {
       score += 0.2;
     }
-    if (company.address && page.content.toLowerCase().includes(company.address.toLowerCase())) {
+    if (
+      company.address &&
+      page.content.toLowerCase().includes(company.address.toLowerCase())
+    ) {
       score += 0.1;
     }
     return {
       url: page.url,
       score: Math.min(1, score),
-      reason: 'Heuristic fallback score due to parsing error.'
+      reason: 'Heuristic fallback score due to parsing error.',
     };
   });
 }
 
-export async function scoreCandidateUrls(company: CompanyInfo, pages: PageContent[]): Promise<ScoredUrl[]> {
+export async function scoreCandidateUrls(
+  company: CompanyInfo,
+  pages: PageContent[]
+): Promise<ScoredUrl[]> {
   if (pages.length === 0) {
     return [];
   }
@@ -162,21 +227,23 @@ export async function scoreCandidateUrls(company: CompanyInfo, pages: PageConten
   const prompt = buildPrompt(company, pages);
 
   try {
-    const response = await geminiClient.responses.generate({
+    const response = await geminiClient.models.generateContent({
       model: appConfig.geminiModel,
       contents: [
         {
           role: 'user',
-          parts: [{ text: prompt }]
-        }
-      ]
+          parts: [{ text: prompt }],
+        },
+      ],
     });
 
     const combinedText = extractTextFromGeminiResponse(response);
 
     const parsed = safeParseGeminiResponse(combinedText);
     if (!parsed) {
-      logger.warn('Gemini response could not be parsed. Falling back to heuristic scoring.');
+      logger.warn(
+        'Gemini response could not be parsed. Falling back to heuristic scoring.'
+      );
       return heuristicScore(company, pages);
     }
 
@@ -186,7 +253,7 @@ export async function scoreCandidateUrls(company: CompanyInfo, pages: PageConten
         match ?? {
           url: page.url,
           score: 0,
-          reason: 'URL not scored by Gemini.'
+          reason: 'URL not scored by Gemini.',
         }
       );
     });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type MockedFunction } from 'vitest';
+
 import type { CompanyInfo, ScoredUrl } from '../src/types.js';
 
 process.env.GOOGLE_API_KEY = process.env.GOOGLE_API_KEY ?? 'test-google-key';

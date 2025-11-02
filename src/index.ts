@@ -1,15 +1,18 @@
 import { fileURLToPath } from 'node:url';
-import { searchCompanyWebsites } from './googleSearch.js';
-import { scoreCandidateUrls } from './geminiScorer.js';
-import { logger } from './logger.js';
+
 import { appConfig } from './config.js';
+import { scoreCandidateUrls } from './geminiScorer.js';
+import { searchCompanyWebsites } from './googleSearch.js';
+import { logger } from './logger.js';
 import { CompanyInfo, PageContent, ScoredUrl } from './types.js';
 
 async function fetchPageContent(url: string): Promise<string> {
   try {
     const response = await fetch(url, { method: 'GET' });
     if (!response.ok) {
-      logger.warn(`Failed to fetch page content for ${url}. Status: ${response.status}`);
+      logger.warn(
+        `Failed to fetch page content for ${url}. Status: ${response.status}`
+      );
       return '';
     }
     const content = await response.text();
@@ -20,7 +23,9 @@ async function fetchPageContent(url: string): Promise<string> {
   }
 }
 
-export async function findBestCompanyUrl(company: CompanyInfo): Promise<ScoredUrl | undefined> {
+export async function findBestCompanyUrl(
+  company: CompanyInfo
+): Promise<ScoredUrl | undefined> {
   logger.info(`Starting workflow for ${company.name}`);
 
   const searchResults = await searchCompanyWebsites(company);
@@ -32,7 +37,7 @@ export async function findBestCompanyUrl(company: CompanyInfo): Promise<ScoredUr
   const pages: PageContent[] = await Promise.all(
     searchResults.map(async (result) => ({
       ...result,
-      content: await fetchPageContent(result.url)
+      content: await fetchPageContent(result.url),
     }))
   );
 
@@ -43,7 +48,9 @@ export async function findBestCompanyUrl(company: CompanyInfo): Promise<ScoredUr
   }
 
   const best = [...scored].sort((a, b) => b.score - a.score)[0];
-  logger.info(`Best URL for ${company.name}: ${best.url} (score=${best.score.toFixed(2)})`);
+  logger.info(
+    `Best URL for ${company.name}: ${best.url} (score=${best.score.toFixed(2)})`
+  );
   return best;
 }
 
@@ -66,7 +73,9 @@ function parseArgs(argv: string[]): CompanyInfo {
   }
 
   if (!company.name) {
-    throw new Error('Company name is required. Use --name "Company Name" to provide it.');
+    throw new Error(
+      'Company name is required. Use --name "Company Name" to provide it.'
+    );
   }
 
   return company;
