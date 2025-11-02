@@ -237,6 +237,17 @@ export async function scoreCandidateUrls(
       ],
     });
 
+    const usageMetadata = response.response?.usageMetadata;
+    if (usageMetadata) {
+      const { promptTokenCount, candidatesTokenCount, totalTokenCount } =
+        usageMetadata;
+      logger.info(
+        `Gemini token usage - prompt: ${promptTokenCount}, candidates: ${candidatesTokenCount}, total: ${totalTokenCount}`
+      );
+    } else {
+      logger.info('Gemini token usage metadata was not provided in the response.');
+    }
+
     const combinedText = extractTextFromGeminiResponse(response);
 
     const parsed = safeParseGeminiResponse(combinedText);
