@@ -29,7 +29,7 @@ export async function searchCompanyWebsites(
     const items = response.data.items ?? [];
     logger.debug(`Received ${items.length} search results.`);
 
-    return items
+    const normalizedResults = items
       .filter((item): item is customsearch_v1.Schema$Result =>
         Boolean(item.link)
       )
@@ -38,6 +38,12 @@ export async function searchCompanyWebsites(
         url: item.link as string,
         snippet: item.snippet ?? item.htmlSnippet ?? undefined,
       }));
+
+    logger.info(
+      `Google Custom Search results: ${JSON.stringify(normalizedResults)}`
+    );
+
+    return normalizedResults;
   } catch (error) {
     logger.error('Failed to execute Google Custom Search request.', error);
     throw error;
