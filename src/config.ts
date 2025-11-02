@@ -37,6 +37,6 @@ export const appConfig: AppConfig = {
   googleApiKey: getEnvVar('GOOGLE_API_KEY'),
   googleSearchEngineId: getEnvVar('GOOGLE_CSE_ID'),
   geminiApiKey: getEnvVar('GEMINI_API_KEY'),
-  googleSearchResultCount: parseNumber('GOOGLE_SEARCH_RESULT_COUNT', 5),
+  googleSearchResultCount: parseNumber('GOOGLE_SEARCH_RESULT_COUNT', 10),
   geminiModel: process.env.GEMINI_MODEL ?? 'models/gemini-1.5-pro-latest'
 };

@@ -24,6 +24,10 @@ export async function searchCompanyWebsites(
       cx: appConfig.googleSearchEngineId,
       q: query,
       num: appConfig.googleSearchResultCount,
+      hl: 'ja',
+      lr: 'lang_ja',
+      gl: 'jp',
+      filter: '1',
     });
 
     const items = response.data.items ?? [];
