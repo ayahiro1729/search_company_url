@@ -5,8 +5,6 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: [],
-    include: ['tests/**/*.test.ts'],
-    exclude: ['tests/**/*.test.js'],
     coverage: {
       enabled: false
     }
