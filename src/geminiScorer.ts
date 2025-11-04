@@ -143,34 +143,11 @@ function buildPrompt(company: CompanyInfo, pages: PageContent[]): string {
   return (
     `You are evaluating candidate company websites. Return ONLY a raw JSON object (no markdown, no code blocks, no backticks).\n\n` +
     `The JSON must have a single property "urls" that is an array of objects with this exact shape:\n` +
-    `{"url": string, "score": number between 0 and 1, "reason": string}\n` +
-    'For every url value, include only the scheme and domain (e.g. https://example.com/), removing any path, query string, or fragment.\n\n' +
+    `{"url": string, "score": number between 0 and 1, "reason": string}\n\n` +
     `Company name: ${company.name}\n${address}\n${description}\n\nCandidate pages:\n${pageSummaries}\n\n` +
     'Base the score on how well the page seems to represent the official website for the company. Higher is better. ' +
     'Always return scores for every provided URL. Return ONLY the JSON object, nothing else.'
   );
-}
-
-function normalizeToDomain(url: string): string {
-  if (typeof url !== 'string') {
-    return '';
-  }
-
-  const trimmed = url.trim();
-  if (trimmed.length === 0) {
-    return '';
-  }
-
-  const withProtocol = /^[a-z]+:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
-
-  try {
-    const parsed = new URL(withProtocol);
-    return `${parsed.protocol}//${parsed.host}/`;
-  } catch {
-    return trimmed;
-  }
 }
 
 function safeParseGeminiResponse(raw: string): GeminiScoreResponse | undefined {
@@ -197,7 +174,7 @@ function safeParseGeminiResponse(raw: string): GeminiScoreResponse | undefined {
             typeof entry.url === 'string' && typeof entry.score === 'number'
         )
         .map((entry) => ({
-          url: normalizeToDomain(entry.url),
+          url: entry.url,
           score: Math.min(1, Math.max(0, entry.score)),
           reason: entry.reason,
         })),
