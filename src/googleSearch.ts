@@ -12,7 +12,14 @@ export async function searchCompanyWebsites(
   const queryParts = [company.name];
   queryParts.push('会社概要');
   if (company.address) {
-    queryParts.push(company.address);
+    const sanitizedAddress = company.address
+      .replace(/["'“”‘’「」『』【】]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (sanitizedAddress.length > 0) {
+      queryParts.push(sanitizedAddress);
+    }
   }
 
   const query = queryParts.join(' ');
