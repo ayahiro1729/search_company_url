@@ -50,7 +50,26 @@ describe('findBestCompanyUrl', () => {
     const result = await findBestCompanyUrl(company);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result).toEqual(scores[0]);
+    expect(result).toEqual({ ...scores[0], url: 'https://www.acme.com/' });
+  });
+
+  it('normalizes the best URL to the domain when Gemini returns a path', async () => {
+    const company: CompanyInfo = { name: 'Acme Corp', address: '123 Street' };
+
+    (searchCompanyWebsites as MockedFunction<typeof searchCompanyWebsites>).mockResolvedValue([
+      { title: 'Acme Corp - Official', url: 'https://www.acme.com/company', snippet: 'Official website for Acme Corp' }
+    ]);
+
+    const scores: ScoredUrl[] = [
+      { url: 'https://www.acme.com/company', score: 0.95, reason: 'Likely official page' }
+    ];
+
+    (scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>).mockResolvedValue(scores);
+
+    const result = await findBestCompanyUrl(company);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ...scores[0], url: 'https://www.acme.com/' });
   });
 
   it('returns undefined when there are no search results', async () => {

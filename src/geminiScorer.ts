@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
+import { getDomainUrl } from './urlSanitizer.js';
 import {
   CompanyInfo,
   GeminiScoreResponse,
@@ -174,7 +175,7 @@ function safeParseGeminiResponse(raw: string): GeminiScoreResponse | undefined {
             typeof entry.url === 'string' && typeof entry.score === 'number'
         )
         .map((entry) => ({
-          url: entry.url,
+          url: getDomainUrl(entry.url),
           score: Math.min(1, Math.max(0, entry.score)),
           reason: entry.reason,
         })),
@@ -209,7 +210,7 @@ function heuristicScore(
       score += 0.1;
     }
     return {
-      url: page.url,
+      url: getDomainUrl(page.url),
       score: Math.min(1, score),
       reason: 'Heuristic fallback score due to parsing error.',
     };
@@ -259,10 +260,13 @@ export async function scoreCandidateUrls(
     }
 
     const scoredUrls = pages.map((page) => {
-      const match = parsed.urls.find((entry) => entry.url === page.url);
+      const sanitizedPageUrl = getDomainUrl(page.url);
+      const match = parsed.urls.find(
+        (entry) => entry.url === sanitizedPageUrl
+      );
       return (
         match ?? {
-          url: page.url,
+          url: sanitizedPageUrl,
           score: 0,
           reason: 'URL not scored by Gemini.',
         }

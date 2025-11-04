@@ -5,6 +5,7 @@ import { scoreCandidateUrls } from './geminiScorer.js';
 import { searchCompanyWebsites } from './googleSearch.js';
 import { logger } from './logger.js';
 import { CompanyInfo, PageContent, ScoredUrl } from './types.js';
+import { getDomainUrl } from './urlSanitizer.js';
 
 async function fetchPageContent(url: string): Promise<string> {
   try {
@@ -48,10 +49,14 @@ export async function findBestCompanyUrl(
   }
 
   const best = [...scored].sort((a, b) => b.score - a.score)[0];
+  const sanitizedBest: ScoredUrl = {
+    ...best,
+    url: getDomainUrl(best.url),
+  };
   logger.info(
-    `Best URL for ${company.name}: ${best.url} (score=${best.score.toFixed(2)})`
+    `Best URL for ${company.name}: ${sanitizedBest.url} (score=${sanitizedBest.score.toFixed(2)})`
   );
-  return best;
+  return sanitizedBest;
 }
 
 function parseArgs(argv: string[]): CompanyInfo {
