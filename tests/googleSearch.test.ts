@@ -13,4 +13,12 @@ describe('sanitizeAddressForQuery', () => {
 
     expect(sanitized).toBe('愛知県名古屋市中区錦1-17-13-2F');
   });
+
+  it('removes the room designator without inserting spurious hyphens', () => {
+    const rawAddress = '京都中野区中央５丁目３８－１３エスエス１０－４０２号室';
+
+    const sanitized = sanitizeAddressForQuery(rawAddress);
+
+    expect(sanitized).toBe('京都中野区中央5-38-13エスエス10-402');
+  });
 });
