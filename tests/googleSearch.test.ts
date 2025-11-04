@@ -22,6 +22,14 @@ describe('sanitizeAddressForQuery', () => {
 
     expect(sanitized).toBe('京都中野区中央5-38-13エスエス10-402');
   });
+
+  it('removes building names appended after the block number', () => {
+    const rawAddress = '東京都渋谷区神宮前６丁目２３番４号桑野ビル２Ｆ';
+
+    const sanitized = sanitizeAddressForQuery(rawAddress);
+
+    expect(sanitized).toBe('東京都渋谷区神宮前6-23-4');
+  });
 });
 
 describe('sanitizeCompanyNameForQuery', () => {
