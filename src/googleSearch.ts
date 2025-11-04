@@ -2,6 +2,8 @@ import { customsearch_v1 } from '@googleapis/customsearch';
 
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
+import { sanitizeAddressForQuery } from './addressSanitizer.js';
+import { sanitizeCompanyNameForQuery } from './companySanitizer.js';
 import { CompanyInfo, SearchResultItem } from './types.js';
 
 const customSearchClient = new customsearch_v1.Customsearch({});
@@ -9,13 +11,11 @@ const customSearchClient = new customsearch_v1.Customsearch({});
 export async function searchCompanyWebsites(
   company: CompanyInfo
 ): Promise<SearchResultItem[]> {
-  const queryParts = [company.name];
+  const sanitizedCompanyName = sanitizeCompanyNameForQuery(company.name);
+  const queryParts = [sanitizedCompanyName];
   queryParts.push('会社概要');
   if (company.address) {
-    const sanitizedAddress = company.address
-      .replace(/["'“”‘’「」『』【】]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const sanitizedAddress = sanitizeAddressForQuery(company.address);
 
     if (sanitizedAddress.length > 0) {
       queryParts.push(sanitizedAddress);
