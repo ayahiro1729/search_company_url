@@ -9,19 +9,13 @@ const customSearchClient = new customsearch_v1.Customsearch({});
 export async function searchCompanyWebsites(
   company: CompanyInfo
 ): Promise<SearchResultItem[]> {
-  const queryParts = [company.name, '会社概要'];
+  const queryParts = [company.name];
+  queryParts.push('会社概要');
   if (company.address) {
-    const sanitizedAddress = company.address
-      .replace(/["'“”‘’「」『』【】]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (sanitizedAddress.length > 0) {
-      queryParts.push(sanitizedAddress);
-    }
+    queryParts.push(company.address);
   }
 
-  const query = queryParts.filter(Boolean).join(' ');
+  const query = queryParts.join(' ');
   logger.info(`Searching for company websites with query: ${query}`);
 
   try {
