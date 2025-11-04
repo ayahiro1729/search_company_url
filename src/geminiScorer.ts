@@ -2,13 +2,13 @@ import { GoogleGenAI } from '@google/genai';
 
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
-import { getDomainUrl } from './urlSanitizer.js';
 import {
   CompanyInfo,
   GeminiScoreResponse,
   PageContent,
   ScoredUrl,
 } from './types.js';
+import { getDomainUrl } from './urlSanitizer.js';
 
 const geminiClient = new GoogleGenAI({ apiKey: appConfig.geminiApiKey });
 

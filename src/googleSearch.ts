@@ -1,9 +1,9 @@
 import { customsearch_v1 } from '@googleapis/customsearch';
 
-import { appConfig } from './config.js';
-import { logger } from './logger.js';
 import { sanitizeAddressForQuery } from './addressSanitizer.js';
 import { sanitizeCompanyNameForQuery } from './companySanitizer.js';
+import { appConfig } from './config.js';
+import { logger } from './logger.js';
 import { CompanyInfo, SearchResultItem } from './types.js';
 
 const customSearchClient = new customsearch_v1.Customsearch({});
