@@ -142,12 +142,27 @@ function buildPrompt(company: CompanyInfo, pages: PageContent[]): string {
     : 'Address: Not provided';
 
   return (
-    `You are evaluating candidate company websites. Return ONLY a raw JSON object (no markdown, no code blocks, no backticks).\n\n` +
+    `You are evaluating candidate company websites to identify the OFFICIAL CORPORATE WEBSITE. Return ONLY a raw JSON object (no markdown, no code blocks, no backticks).\n\n` +
     `The JSON must have a single property "urls" that is an array of objects with this exact shape:\n` +
     `{"url": string, "score": number between 0 and 1, "reason": string}\n\n` +
     `Company name: ${company.name}\n${address}\n${description}\n\nCandidate pages:\n${pageSummaries}\n\n` +
-    'Base the score on how well the page seems to represent the official website for the company. Higher is better. ' +
-    'Always return scores for every provided URL. Return ONLY the JSON object, nothing else.'
+    `SCORING CRITERIA (be strict):\n` +
+    `• 0.0-0.2: Clearly NOT the official website (social media, job boards, news articles, Wikipedia, review sites, etc.)\n` +
+    `• 0.3-0.5: Related to the company but likely not the official corporate site (press releases, third-party listings)\n` +
+    `• 0.6-0.8: Possibly the official website but with some uncertainty\n` +
+    `• 0.9-1.0: Almost certainly the official corporate website\n\n` +
+    `SITES TO SCORE LOW (0.0-0.3):\n` +
+    `- Social media: Twitter/X, Facebook, LinkedIn, Instagram, YouTube channels\n` +
+    `- Job boards: Indeed, Rikunabi, Wantedly, Green, recruitment portals\n` +
+    `- News/Media: News articles, press releases on news sites, blog posts about the company\n` +
+    `- Information aggregators: Wikipedia, company databases, review sites, rating sites\n` +
+    `- E-commerce platforms: Amazon, Rakuten, Yahoo Shopping stores\n\n` +
+    `OFFICIAL WEBSITE INDICATORS (score high):\n` +
+    `- Domain name closely matches company name\n` +
+    `- Contains company information matching the provided address/description\n` +
+    `- Corporate structure (About Us, Services, Contact pages)\n` +
+    `- Self-hosted content, not on third-party platforms\n\n` +
+    `EVALUATE: Domain relevance, content ownership, site type, company info accuracy. Always return scores for every provided URL. Return ONLY the JSON object, nothing else.`
   );
 }
 
@@ -246,7 +261,9 @@ export async function scoreCandidateUrls(
         `Gemini token usage - prompt: ${promptTokenCount}, candidates: ${candidatesTokenCount}, total: ${totalTokenCount}`
       );
     } else {
-      logger.info('Gemini token usage metadata was not provided in the response.');
+      logger.info(
+        'Gemini token usage metadata was not provided in the response.'
+      );
     }
 
     const combinedText = extractTextFromGeminiResponse(response);
@@ -261,9 +278,7 @@ export async function scoreCandidateUrls(
 
     const scoredUrls = pages.map((page) => {
       const sanitizedPageUrl = getDomainUrl(page.url);
-      const match = parsed.urls.find(
-        (entry) => entry.url === sanitizedPageUrl
-      );
+      const match = parsed.urls.find((entry) => entry.url === sanitizedPageUrl);
       return (
         match ?? {
           url: sanitizedPageUrl,

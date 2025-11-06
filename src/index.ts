@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 
+import { searchCompanyWebsites as searchBraveCompanyWebsites } from './braveSearch.js';
 import { appConfig } from './config.js';
 import { scoreCandidateUrls } from './geminiScorer.js';
 import { searchCompanyWebsites as searchGoogleCompanyWebsites } from './googleSearch.js';
-import { searchCompanyWebsites as searchBraveCompanyWebsites } from './braveSearch.js';
 import { logger } from './logger.js';
 import { CompanyInfo, PageContent, ScoredUrl, SearchResultItem } from './types.js';
 import { getDomainUrl } from './urlSanitizer.js';
