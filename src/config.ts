@@ -8,6 +8,8 @@ export interface AppConfig {
   geminiApiKey: string;
   googleSearchResultCount: number;
   geminiModel: string;
+  braveApiKey: string;
+  braveSearchResultCount: number;
 }
 
 function getEnvVar(name: string): string {
@@ -38,5 +40,7 @@ export const appConfig: AppConfig = {
   googleSearchEngineId: getEnvVar('GOOGLE_CSE_ID'),
   geminiApiKey: getEnvVar('GEMINI_API_KEY'),
   googleSearchResultCount: parseNumber('GOOGLE_SEARCH_RESULT_COUNT', 10),
-  geminiModel: process.env.GEMINI_MODEL ?? 'models/gemini-1.5-pro-latest'
+  geminiModel: process.env.GEMINI_MODEL ?? 'models/gemini-1.5-pro-latest',
+  braveApiKey: getEnvVar('BRAVE_API_KEY'),
+  braveSearchResultCount: parseNumber('BRAVE_SEARCH_RESULT_COUNT', 10),
 };

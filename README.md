@@ -26,6 +26,8 @@ Populate the environment variables:
 - `GEMINI_API_KEY` – API key for Gemini.
 - `GOOGLE_SEARCH_RESULT_COUNT` *(optional)* – Number of search results to request (default: 5).
 - `GEMINI_MODEL` *(optional)* – Gemini model identifier (default: `models/gemini-1.5-pro-latest`).
+- `BRAVE_API_KEY` – API key for the Brave Search API (used as a fallback when Google results score poorly).
+- `BRAVE_SEARCH_RESULT_COUNT` *(optional)* – Number of Brave search results to request (default: 10).
 
 ## Available Scripts
 
