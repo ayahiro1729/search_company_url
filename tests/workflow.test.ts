@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi, type MockedFunction } from 'vites
 
 import type { CompanyInfo, ScoredUrl } from '../src/types.js';
 
+process.env.SCRAPINGDOG_API_KEY =
+  process.env.SCRAPINGDOG_API_KEY ?? 'test-scrapingdog-key';
 process.env.GOOGLE_API_KEY = process.env.GOOGLE_API_KEY ?? 'test-google-key';
 process.env.GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID ?? 'test-cse-id';
 process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? 'test-gemini-key';
@@ -9,20 +11,30 @@ process.env.BRAVE_API_KEY = process.env.BRAVE_API_KEY ?? 'test-brave-key';
 
 const fetchMock = vi.fn();
 
+vi.mock('../src/scrapingdogSearch.js', () => ({
+  searchCompanyWebsites: vi.fn(),
+}));
+
 vi.mock('../src/googleSearch.js', () => ({
-  searchCompanyWebsites: vi.fn()
+  searchCompanyWebsites: vi.fn(),
 }));
 
 vi.mock('../src/braveSearch.js', () => ({
-  searchCompanyWebsites: vi.fn()
+  searchCompanyWebsites: vi.fn(),
 }));
 
 vi.mock('../src/geminiScorer.js', () => ({
-  scoreCandidateUrls: vi.fn()
+  scoreCandidateUrls: vi.fn(),
 }));
 
-const { searchCompanyWebsites: googleSearchCompanyWebsites } = await import('../src/googleSearch.js');
-const { searchCompanyWebsites: braveSearchCompanyWebsites } = await import('../src/braveSearch.js');
+const { searchCompanyWebsites: scrapingdogSearchCompanyWebsites } =
+  await import('../src/scrapingdogSearch.js');
+const { searchCompanyWebsites: googleSearchCompanyWebsites } = await import(
+  '../src/googleSearch.js'
+);
+const { searchCompanyWebsites: braveSearchCompanyWebsites } = await import(
+  '../src/braveSearch.js'
+);
 const { scoreCandidateUrls } = await import('../src/geminiScorer.js');
 const { findBestCompanyUrl } = await import('../src/index.js');
 
@@ -31,55 +43,92 @@ describe('findBestCompanyUrl', () => {
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
       ok: true,
-      text: async () => 'Sample content mentioning Acme Corp and address 123 Street'
+      text: async () =>
+        'Sample content mentioning Acme Corp and address 123 Street',
     });
     global.fetch = fetchMock as unknown as typeof fetch;
+    (
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).mockReset();
     (googleSearchCompanyWebsites as MockedFunction<
       typeof googleSearchCompanyWebsites
     >).mockReset();
     (braveSearchCompanyWebsites as MockedFunction<
       typeof braveSearchCompanyWebsites
     >).mockReset();
-    (scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>).mockReset();
+    (
+      scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>
+    ).mockReset();
   });
 
-  it('returns the highest scoring URL', async () => {
+  it('returns the highest scoring URL from Scrapingdog results when the score is above the threshold', async () => {
     const company: CompanyInfo = { name: 'Acme Corp', address: '123 Street' };
 
-    (googleSearchCompanyWebsites as MockedFunction<
-      typeof googleSearchCompanyWebsites
-    >).mockResolvedValue([
-      { title: 'Acme Corp - Official', url: 'https://www.acme.com', snippet: 'Official website for Acme Corp' },
-      { title: 'Acme Partners', url: 'https://partners.acme.com', snippet: 'Partners portal' }
+    (
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).mockResolvedValue([
+      {
+        title: 'Acme Corp - Official',
+        url: 'https://www.acme.com',
+        snippet: 'Official website for Acme Corp',
+      },
+      {
+        title: 'Acme Partners',
+        url: 'https://partners.acme.com',
+        snippet: 'Partners portal',
+      },
     ]);
 
     const scores: ScoredUrl[] = [
       { url: 'https://www.acme.com', score: 0.9, reason: 'Official domain' },
-      { url: 'https://partners.acme.com', score: 0.6, reason: 'Partner portal' }
+      { url: 'https://partners.acme.com', score: 0.6, reason: 'Partner portal' },
     ];
 
-    (scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>).mockResolvedValue(scores);
+    (
+      scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>
+    ).mockResolvedValue(scores);
 
     const result = await findBestCompanyUrl(company);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ ...scores[0], url: 'https://www.acme.com/' });
+    expect(
+      googleSearchCompanyWebsites as MockedFunction<
+        typeof googleSearchCompanyWebsites
+      >
+    ).not.toHaveBeenCalled();
   });
 
   it('normalizes the best URL to the domain when Gemini returns a path', async () => {
     const company: CompanyInfo = { name: 'Acme Corp', address: '123 Street' };
 
-    (googleSearchCompanyWebsites as MockedFunction<
-      typeof googleSearchCompanyWebsites
-    >).mockResolvedValue([
-      { title: 'Acme Corp - Official', url: 'https://www.acme.com/company', snippet: 'Official website for Acme Corp' }
+    (
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).mockResolvedValue([
+      {
+        title: 'Acme Corp - Official',
+        url: 'https://www.acme.com/company',
+        snippet: 'Official website for Acme Corp',
+      },
     ]);
 
     const scores: ScoredUrl[] = [
-      { url: 'https://www.acme.com/company', score: 0.95, reason: 'Likely official page' }
+      {
+        url: 'https://www.acme.com/company',
+        score: 0.95,
+        reason: 'Likely official page',
+      },
     ];
 
-    (scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>).mockResolvedValue(scores);
+    (
+      scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>
+    ).mockResolvedValue(scores);
 
     const result = await findBestCompanyUrl(company);
 
@@ -87,11 +136,13 @@ describe('findBestCompanyUrl', () => {
     expect(result).toEqual({ ...scores[0], url: 'https://www.acme.com/' });
   });
 
-  it('returns undefined when there are no search results', async () => {
+  it('returns undefined when there are no Scrapingdog results', async () => {
     const company: CompanyInfo = { name: 'Unknown Inc' };
-    (googleSearchCompanyWebsites as MockedFunction<
-      typeof googleSearchCompanyWebsites
-    >).mockResolvedValue([]);
+    (
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).mockResolvedValue([]);
 
     const result = await findBestCompanyUrl(company);
 
@@ -99,12 +150,14 @@ describe('findBestCompanyUrl', () => {
     expect(scoreCandidateUrls).not.toHaveBeenCalled();
   });
 
-  it('falls back to Brave search when Google scores are low', async () => {
+  it('falls back through Google and Brave when earlier providers score too low', async () => {
     const company: CompanyInfo = { name: 'Fallback Corp' };
 
-    (googleSearchCompanyWebsites as MockedFunction<
-      typeof googleSearchCompanyWebsites
-    >).mockResolvedValue([
+    (
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).mockResolvedValue([
       {
         title: 'Fallback Corp Blog',
         url: 'https://blog.fallback.example',
@@ -112,9 +165,23 @@ describe('findBestCompanyUrl', () => {
       },
     ]);
 
-    (braveSearchCompanyWebsites as MockedFunction<
-      typeof braveSearchCompanyWebsites
-    >).mockResolvedValue([
+    (
+      googleSearchCompanyWebsites as MockedFunction<
+        typeof googleSearchCompanyWebsites
+      >
+    ).mockResolvedValue([
+      {
+        title: 'Fallback Corp Directory Entry',
+        url: 'https://directory.fallback.example',
+        snippet: 'Directory entry',
+      },
+    ]);
+
+    (
+      braveSearchCompanyWebsites as MockedFunction<
+        typeof braveSearchCompanyWebsites
+      >
+    ).mockResolvedValue([
       {
         title: 'Fallback Corp Official',
         url: 'https://www.fallback.example/about',
@@ -122,12 +189,21 @@ describe('findBestCompanyUrl', () => {
       },
     ]);
 
-    (scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>)
+    (
+      scoreCandidateUrls as MockedFunction<typeof scoreCandidateUrls>
+    )
       .mockResolvedValueOnce([
         {
           url: 'https://blog.fallback.example',
           score: 0.6,
           reason: 'Blog reference',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          url: 'https://directory.fallback.example',
+          score: 0.65,
+          reason: 'Directory listing',
         },
       ])
       .mockResolvedValueOnce([
@@ -146,6 +222,11 @@ describe('findBestCompanyUrl', () => {
       reason: 'Official site',
     });
     expect(
+      scrapingdogSearchCompanyWebsites as MockedFunction<
+        typeof scrapingdogSearchCompanyWebsites
+      >
+    ).toHaveBeenCalledTimes(1);
+    expect(
       googleSearchCompanyWebsites as MockedFunction<
         typeof googleSearchCompanyWebsites
       >
@@ -155,6 +236,6 @@ describe('findBestCompanyUrl', () => {
         typeof braveSearchCompanyWebsites
       >
     ).toHaveBeenCalledTimes(1);
-    expect(scoreCandidateUrls).toHaveBeenCalledTimes(2);
+    expect(scoreCandidateUrls).toHaveBeenCalledTimes(3);
   });
 });

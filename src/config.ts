@@ -10,6 +10,8 @@ export interface AppConfig {
   geminiModel: string;
   braveApiKey: string;
   braveSearchResultCount: number;
+  scrapingdogApiKey: string;
+  scrapingdogSearchResultCount: number;
 }
 
 function getEnvVar(name: string): string {
@@ -43,4 +45,6 @@ export const appConfig: AppConfig = {
   geminiModel: process.env.GEMINI_MODEL ?? 'models/gemini-1.5-pro-latest',
   braveApiKey: getEnvVar('BRAVE_API_KEY'),
   braveSearchResultCount: parseNumber('BRAVE_SEARCH_RESULT_COUNT', 10),
+  scrapingdogApiKey: getEnvVar('SCRAPINGDOG_API_KEY'),
+  scrapingdogSearchResultCount: parseNumber('SCRAPINGDOG_SEARCH_RESULT_COUNT', 10),
 };

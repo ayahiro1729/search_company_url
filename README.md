@@ -1,6 +1,6 @@
 # Search Company URL
 
-A TypeScript CLI utility that uses Google Custom Search to find candidate company websites and Gemini to score them, returning the best matching URL.
+A TypeScript CLI utility that uses Scrapingdog, Google Custom Search, and Brave Search to gather candidate company websites and Gemini to score them, returning the best matching URL.
 
 ## Prerequisites
 
@@ -21,6 +21,8 @@ cp .env.example .env
 
 Populate the environment variables:
 
+- `SCRAPINGDOG_API_KEY` – API key for Scrapingdog (used for the first-stage Google SERP scrape).
+- `SCRAPINGDOG_SEARCH_RESULT_COUNT` *(optional)* – Number of Scrapingdog results to request (default: 10).
 - `GOOGLE_API_KEY` – Google API key with access to Custom Search JSON API.
 - `GOOGLE_CSE_ID` – Custom Search Engine ID (cx) configured to search the public web.
 - `GEMINI_API_KEY` – API key for Gemini.

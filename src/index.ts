@@ -5,6 +5,7 @@ import { appConfig } from './config.js';
 import { scoreCandidateUrls } from './geminiScorer.js';
 import { searchCompanyWebsites as searchGoogleCompanyWebsites } from './googleSearch.js';
 import { logger } from './logger.js';
+import { searchCompanyWebsites as searchScrapingdogCompanyWebsites } from './scrapingdogSearch.js';
 import { CompanyInfo, PageContent, ScoredUrl, SearchResultItem } from './types.js';
 import { getDomainUrl } from './urlSanitizer.js';
 
@@ -62,27 +63,48 @@ export async function findBestCompanyUrl(
     return { ...best, url: getDomainUrl(best.url) };
   };
 
-  let bestResult = await evaluateSearchResults(
-    'Google',
-    searchGoogleCompanyWebsites
-  );
-  let bestProvider = 'Google';
+  const searchPipeline: Array<{
+    name: string;
+    searchFn: (company: CompanyInfo) => Promise<SearchResultItem[]>;
+  }> = [
+    { name: 'Scrapingdog', searchFn: searchScrapingdogCompanyWebsites },
+    { name: 'Google', searchFn: searchGoogleCompanyWebsites },
+    { name: 'Brave', searchFn: searchBraveCompanyWebsites },
+  ];
 
-  if (!bestResult || bestResult.score <= GEMINI_CONFIDENCE_THRESHOLD) {
-    logger.info(
-      `Best Google score is ${GEMINI_CONFIDENCE_THRESHOLD.toFixed(
-        2
-      )} or below (or unavailable). Trying Brave Search results.`
-    );
-    const braveResult = await evaluateSearchResults(
-      'Brave',
-      searchBraveCompanyWebsites
+  let bestResult: ScoredUrl | undefined;
+  let bestProvider: string | undefined;
+
+  for (const provider of searchPipeline) {
+    const result = await evaluateSearchResults(
+      provider.name,
+      provider.searchFn
     );
 
-    if (braveResult && (!bestResult || braveResult.score > bestResult.score)) {
-      bestResult = braveResult;
-      bestProvider = 'Brave';
+    if (!result) {
+      logger.info(
+        `${provider.name} search produced no scorer-friendly candidates.`
+      );
+      continue;
     }
+
+    const isBetter = !bestResult || result.score > bestResult.score;
+    if (isBetter) {
+      bestResult = result;
+      bestProvider = provider.name;
+    }
+
+    if (result.score > GEMINI_CONFIDENCE_THRESHOLD) {
+      break;
+    }
+
+    logger.info(
+      `Best ${provider.name} score (${result.score.toFixed(
+        2
+      )}) is at or below ${GEMINI_CONFIDENCE_THRESHOLD.toFixed(
+        2
+      )}. Trying next provider.`
+    );
   }
 
   if (!bestResult) {
@@ -93,7 +115,7 @@ export async function findBestCompanyUrl(
   logger.info(
     `Best URL for ${company.name}: ${bestResult.url} (score=${bestResult.score.toFixed(
       2
-    )}, provider=${bestProvider})`
+    )}, provider=${bestProvider ?? 'unknown'})`
   );
   return bestResult;
 }
